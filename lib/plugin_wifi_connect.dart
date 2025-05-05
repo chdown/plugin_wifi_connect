@@ -110,4 +110,9 @@ class PluginWifiConnect {
     final String? ssid = await _channel.invokeMethod<String>('getSSID');
     return ssid;
   }
+
+  /// 初始化插件，必须先调用
+  static Future<void> initialize() async {
+    await _channel.invokeMethod('initialize');
+  }
 }

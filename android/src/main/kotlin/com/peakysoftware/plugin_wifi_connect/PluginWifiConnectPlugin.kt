@@ -47,6 +47,8 @@ class PluginWifiConnectPlugin() : FlutterPlugin, MethodCallHandler {
     context?.getSystemService(Context.WIFI_SERVICE) as WifiManager
   }
 
+  private var isInitialized: Boolean = false
+
   override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
     context = flutterPluginBinding.getApplicationContext()
     channel = MethodChannel(flutterPluginBinding.binaryMessenger, "plugin_wifi_connect")
@@ -55,7 +57,16 @@ class PluginWifiConnectPlugin() : FlutterPlugin, MethodCallHandler {
 
   override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
     when (call.method) {
+      "initialize" -> {
+        isInitialized = true
+        result.success(true)
+        return
+      }
       "disconnect" -> {
+        if (!isInitialized) {
+          result.error("not_initialized", "Plugin not initialized", null)
+          return
+        }
         when {
           Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
             result.success(disconnect())
@@ -69,10 +80,18 @@ class PluginWifiConnectPlugin() : FlutterPlugin, MethodCallHandler {
         return
       }
       "getSSID" -> {
+        if (!isInitialized) {
+          result.error("not_initialized", "Plugin not initialized", null)
+          return
+        }
         result.success(getSSID())
         return
       }
       "connect" -> {
+        if (!isInitialized) {
+          result.error("not_initialized", "Plugin not initialized", null)
+          return
+        }
         val ssid = call.argument<String>("ssid")
         ssid?.let {
           when {
@@ -93,6 +112,10 @@ class PluginWifiConnectPlugin() : FlutterPlugin, MethodCallHandler {
         return
       }
       "prefixConnect" -> {
+        if (!isInitialized) {
+          result.error("not_initialized", "Plugin not initialized", null)
+          return
+        }
         val ssid = call.argument<String>("ssid")
         ssid?.let {
           when {
@@ -113,6 +136,10 @@ class PluginWifiConnectPlugin() : FlutterPlugin, MethodCallHandler {
         return
       }
       "secureConnect" -> {
+        if (!isInitialized) {
+          result.error("not_initialized", "Plugin not initialized", null)
+          return
+        }
         val ssid = call.argument<String>("ssid")
         val password = call.argument<String>("password")
         val isWep = call.argument<Boolean>("isWep")
@@ -147,6 +174,10 @@ class PluginWifiConnectPlugin() : FlutterPlugin, MethodCallHandler {
         return
       }
       "securePrefixConnect" -> {
+        if (!isInitialized) {
+          result.error("not_initialized", "Plugin not initialized", null)
+          return
+        }
         val ssid = call.argument<String>("ssid")
         val password = call.argument<String>("password")
         val isWep = call.argument<Boolean>("isWep")
@@ -314,7 +345,11 @@ class PluginWifiConnectPlugin() : FlutterPlugin, MethodCallHandler {
   fun connect(@NonNull specifier: WifiNetworkSpecifier, @NonNull result: Result){
     if (this.networkCallback != null) {
       // there was already a connection, unregister to disconnect before proceeding
-      connectivityManager.unregisterNetworkCallback(this.networkCallback!!)
+      try {
+        connectivityManager.unregisterNetworkCallback(this.networkCallback!!)
+      } catch (e: Exception) {
+        // 忽略已注销异常
+      }
     }
     val request = NetworkRequest.Builder()
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
@@ -347,7 +382,11 @@ class PluginWifiConnectPlugin() : FlutterPlugin, MethodCallHandler {
       return false
     }
     
-    connectivityManager.unregisterNetworkCallback(this.networkCallback!!)
+    try {
+      connectivityManager.unregisterNetworkCallback(this.networkCallback!!)
+    } catch (e: Exception) {
+      // 忽略已注销异常
+    }
     connectivityManager.bindProcessToNetwork(null)
     this.networkCallback = null
 
